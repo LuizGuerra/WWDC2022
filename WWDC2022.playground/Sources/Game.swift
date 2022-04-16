@@ -10,6 +10,9 @@ public class Game {
         scene.scaleMode = .aspectFit
         sceneKitView.presentScene(scene)
         
+        sceneKitView.showsFPS = true
+        sceneKitView.showsNodeCount = true
+        
         action(sceneKitView)
     }
 }

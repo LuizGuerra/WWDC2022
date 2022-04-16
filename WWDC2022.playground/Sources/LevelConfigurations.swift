@@ -1,26 +1,27 @@
 import SpriteKit
 import GameplayKit
 
-// MARK: Constants
-fileprivate enum EntityConfigurations {
-    // White Cell
-    static let whiteCellName = "whiteCell"
-    static let whiteCellSpeed: CGFloat = 160
-    
-    // Virus
-    static let virusName = "virus"
-    static let virusSpeed: CGFloat = 50
-    static let awarenessRange: CGFloat = 200
-}
-
 public class Level: SKScene, SKPhysicsContactDelegate {
     
     // MARK: Outlets
     var whiteCell: SKSpriteNode?
     var viruses: [SKSpriteNode] = []
-    var awakeViruses: [Bool] = []
     
-    // MARK: Other stuff
+    // MARK: Bitmask IDs
+    private let DEFENSECELL = 1
+    private let VIRUS = 2
+    private let REDCELL = 3
+    private let WALL = 4
+    
+    // MARK: Defense cell variables
+    private let whiteCellName = "whiteCell"
+    private var whiteCellSpeed: CGFloat = 160
+    
+    // MARK: Viruses variables
+    private let virusName = "virus"
+    private let virusSpeed: CGFloat = 100
+    
+    // MARK: Level variables
     var lastTouch: CGPoint? = nil
     var updates: Int = 0
     var touchTimer: Timer?
@@ -30,16 +31,8 @@ public class Level: SKScene, SKPhysicsContactDelegate {
     
     var levelCompleted: Bool = false
     
-    // Mark: Bitmask IDs
-    private let DEFENSECELL = 1
-    private let VIRUS = 2
-    private let REDCELL = 3
-    private let WALL = 4
-    
-    // MARK: Level computed variables
+    // MARK: Level computed variable
     var level: Int { 0 }
-    var nextSKSCene: SKScene? { nil }
-    var repeatScene: SKScene? { nil }
     
     public override func didMove(to view: SKView) {
         physicsWorld.contactDelegate = self
@@ -47,24 +40,38 @@ public class Level: SKScene, SKPhysicsContactDelegate {
     }
     
     private func setNodes() {
-        whiteCell = childNode(withName: EntityConfigurations.whiteCellName) as? SKSpriteNode
-        for child in self.children where child.name == "virus" {
+        whiteCell = childNode(withName: whiteCellName) as? SKSpriteNode
+        for child in self.children where child.name == virusName {
             if let virus = child as? SKSpriteNode {
                 viruses.append(virus)
-                awakeViruses.append(false)
+                let originalY = virus.position.y
+//                let dy = virus.position.x < 0 ? y
+//                virus.run(.move(by: CGVector(dx: -240, dy: dy), duration: 1))
             }
         }
     }
     
+    private func virusVector(from original: CGPoint) -> Array<CGFloat> {
+        let wasAbove = original.y > 0
+        let wasLeft = original.x < 0
+        var ys: Array<CGFloat> = []
+        var lastY = 0
+        for i in 1 ... 6 {
+            let a = 0 * 1000
+            let b = original.y/2
+        }
+        
+        return ys
+    }
     
     func updateWhiteCell() {
         guard let whiteCell = whiteCell, let touch = lastTouch else {
             return
         }
+        whiteCell.physicsBody?.isResting = true
+        whiteCell.physicsBody?.velocity = .zero
         if canMove(from: whiteCell.position, to: touch) {
-            vectorialMovement(whiteCell, to: touch, speed: EntityConfigurations.whiteCellSpeed, rotate: true)
-        } else {
-            whiteCell.physicsBody?.isResting = true
+            vectorialMovement(whiteCell, to: touch, speed: whiteCellSpeed, rotate: true)
         }
 
     }
@@ -78,11 +85,6 @@ public class Level: SKScene, SKPhysicsContactDelegate {
         }
     }
     
-    // TODO: todo
-    func updateViruses() {
-        
-    }
-    
     private func canMove(from: CGPoint, to: CGPoint) -> Bool {
         guard let whiteCellFrame = whiteCell?.frame else {
             return false
@@ -91,16 +93,6 @@ public class Level: SKScene, SKPhysicsContactDelegate {
         let insideAllowedHeight = abs(from.y - to.y) > whiteCellFrame.height / 2
         return insideAllowedHeight || insideAllowedWidth
     }
-    
-//    private func virusCanMove(_ virus: SKNode) -> Bool {
-//        guard let whiteCell = whiteCell else {
-//            return false
-//        }
-//        let from = virus.position
-//        let to = whiteCell.position
-//        let distanceSquared = sqrt((from.x - to.x)*(from.x - to.x) + (from.y - to.y)*(from.y - to.y))
-//        return distanceSquared <= 180 // (virus detection range)
-//    }
     
     private func vectorialMovement(_ sprite: SKSpriteNode, to: CGPoint, speed: CGFloat, rotate: Bool = false) {
         // Movement vector calculation
@@ -136,14 +128,6 @@ public class Level: SKScene, SKPhysicsContactDelegate {
 //        spriteNode.run(SKAction.repeatForever(bounce))
 //    }
     
-//     MARK: Physics
-    public override func didSimulatePhysics() {
-        if !viruses.isEmpty && isMoving {
-            updateViruses()
-            updateWhiteCell()
-        }
-    }
-    
     // MARK: Colision
     public func didBegin(_ contact: SKPhysicsContact) {
         if levelCompleted {
@@ -156,13 +140,43 @@ public class Level: SKScene, SKPhysicsContactDelegate {
         let b = Int(bodyB.categoryBitMask)
         
         if contactIsBetween(a, b, are: [DEFENSECELL, VIRUS]) {
-            // if is last virus, then end phase
-            // if is not last virus, then continue phase
-            print("White cell and virus")
+            whiteCellSpeed += 20
+            if viruses.isEmpty { // In case is touching a dying bacteria
+                return
+            }
+            print("{CONTACT}\t[DEFENSECELL VIRUS]\t<code block>\tstart")
+            if a == VIRUS {
+                removeVirus(bodyA)
+            } else {
+                removeVirus(bodyB)
+            }
+            print("{CONTACT}\t[DEFENSECELL VIRUS]\t<code block>\tcompletion")
         } else if contactIsBetween(a, b, are: [DEFENSECELL, REDCELL]) {
-            print("White cell and red cell")
+            print("{CONTACT}\t[DEFENSECELL REDCELL]\t<code block>\tstart")
+            print("{CONTACT}\t[DEFENSECELL REDCELL]\t<code block>\tcompletion")
+        } else if contactIsBetween(a, b, are: [VIRUS, WALL]) {
+            // Can loose game
+            print("{CONTACT}\t[VIRUS WALL]\t\t<code block>\tstart")
+            self.levelCompleted = true
+            self.levelCompletion(won: false)
+            print("{CONTACT}\t[VIRUS WALL]\t\t<code block>\tcompletion")
         }
         // Other colisions are irrelevant
+    }
+    
+    private func removeVirus(_ body: SKPhysicsBody) {
+        guard let virusNode = body.node as? SKSpriteNode,
+              let index = viruses.firstIndex(of: virusNode) else { return }
+        body.node?.physicsBody?.categoryBitMask = 0
+        viruses.remove(at: index)
+        virusNode.run(SKAction.init(named: "Virus_Death")!, completion: {
+            virusNode.removeFromParent()
+            // if is the last virus, then end phase
+            if self.viruses.isEmpty {
+                self.levelCompleted = true
+                self.levelCompletion(won: true)
+            }
+        })
     }
     
     private func contactIsBetween(_ bodyA: Int, _ bodyB: Int, are bodies: [Int]) -> Bool {
@@ -171,20 +185,12 @@ public class Level: SKScene, SKPhysicsContactDelegate {
     
     // MARK: Level completion
     private func levelCompletion(won: Bool) {
-        let transition = SKTransition.moveIn(with: .right, duration: 0.5)
-        if won {
-            guard let nextSKSCene = nextSKSCene else {
-                return
-            }
-            nextSKSCene.scaleMode = .aspectFit
-            view?.presentScene(nextSKSCene, transition: transition)
-        } else {
-            guard let repeatScene = repeatScene else {
-                return
-            }
-            repeatScene.scaleMode = .aspectFit
-            view?.presentScene(repeatScene, transition: transition)
-        }
+        let fileName = "SpecialScene_Level\(won ? "Passed" : "Failed")"
+        guard let nextScene = LevelEndConfigurations(fileNamed: fileName) else { return }
+        nextScene.configure(won: won, from: level)
+        let moveRight = SKTransition.moveIn(with: .right, duration: 0.5)
+        nextScene.scaleMode = .aspectFit
+        view?.presentScene(nextScene, transition: moveRight)
     }
     
     // MARK: Touches handler
@@ -203,8 +209,8 @@ public class Level: SKScene, SKPhysicsContactDelegate {
         
         if canMove {
             canMove = false
-            touchTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: false) { timer in
-                self.canMove = true
+            touchTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: false) { [weak self] timer in
+                self?.canMove = true
             }
             updateWhiteCell()
         }
