@@ -4,24 +4,6 @@ import SpriteKit
 // Super class
 public class NodeConfigurations: SKScene {
     var nextSKScene: SKScene? { nil }
-
-    
-//    func animateDown(_ node: SKNode) {
-////        let action = SKAction.sequence([
-////
-////        ])
-//    }
-    
-//    func animateUp(_ node: SKNode) {
-//
-//    }
-    
-//    func setTexts(_ node: SKLabelNode, _ text: String) {
-//        node.text = text
-//        node.numberOfLines = 0
-//        node.lineBreakMode = .byWordWrapping
-//        node.preferredMaxLayoutWidth = 500
-//    }
     
     public override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let nextSKScene = nextSKScene else { return }
@@ -43,32 +25,53 @@ public class LevelEndConfigurations: SKScene {
         self.won = won
         self.fromLevel = level
     }
-
-    // If won
-    var levelCompletedTexture: String? { nil }
     
     public override func didMove(to view: SKView) {
         super.didMove(to: view)
-        if won {
-            setIfWon()
-        } else {
-            setIfLost()
-        }
+        setIfWon()
+        setIfLost()
+//        if won {
+//            setIfWon()
+//        } else {
+//            setIfLost()
+//        }
     }
     
     private func setIfWon() {
-        guard let sprite = childNode(withName: "defense_cell") as? SKSpriteNode,
-              let textureName = levelCompletedTexture else { return }
-        sprite.texture = SKTexture(imageNamed: textureName)
+        guard let sprite = childNode(withName: "defense_cell") as? SKSpriteNode else { return }
+        var textureName = ""
+        switch fromLevel {
+        case 1:
+            textureName = "Asset_Macrophage"
+        case 2:
+            textureName = "Asset_Neutrophil"
+        case 3:
+            textureName = "Asset_HelperT"
+        case 4:
+            textureName = "Asset_HelperB"
+        default:
+            break
+        }
+        let newTexture = SKTexture(imageNamed: textureName)
+        sprite.run(.setTexture(newTexture, resize: true))
     }
     
     private func setIfLost() {
-        guard let helpLabel = childNode(withName: "help_text") as? SKLabelNode else {
+        guard let descriptionNode = childNode(withName: "description") as? SKSpriteNode else {
             return
         }
-        if fromLevel == 4 {
-            helpLabel.text = "Tap anywhere in the screen to produce anti-bodies and eliminate all the dangerous cells!"
+        var textureName = "Asset_LevelFailed_Description"
+        if fromLevel == 1 {
+            textureName += "1"
         }
+        if fromLevel == 2 || fromLevel == 3 {
+            textureName += "2-3"
+        }
+        if fromLevel == 4 {
+            textureName += "4"
+        }
+        let newTexture = SKTexture(imageNamed: textureName)
+        descriptionNode.run(.setTexture(newTexture, resize: true))
     }
     
     public override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {

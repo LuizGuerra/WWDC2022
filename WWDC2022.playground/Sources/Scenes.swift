@@ -21,6 +21,8 @@ public final class MacrophageScene: NodeConfigurations {
 
 public final class LevelOneScene: Level {
     override var level: Int { 1 }
+    override var virusesTolerance: Int { 1 }
+    override var virusDelayTime: CGFloat { 1.5 }
 //    override var nextSKSCene: SKScene? {
 //        NeutrophilScene(fileNamed: "05_Neutrophil")
 //    }
@@ -34,6 +36,11 @@ public final class NeutrophilScene: NodeConfigurations {
 
 public final class LevelTwoScene: Level {
     override var level: Int { 2 }
+    override var virusDelayTime: CGFloat { 1.5 }
+    override var redCellDelayTime: CGFloat { 3 }
+    override var shouldCareForRedCellContact: Bool { true }
+    override var redCellTolerance: Int { 1 }
+    override var virusesTolerance: Int { 1 }
 //    override var nextSKScene: SKScene? {
 //        DentriticScene(fileNamed: "07_Dentritic")
 //    }
@@ -53,6 +60,11 @@ public final class HelperTScene: NodeConfigurations {
 
 public final class LevelThreeScene: Level {
     override var level: Int { 3 }
+    override var virusDelayTime: CGFloat { 1 }
+    override var redCellDelayTime: CGFloat { 4.5 }
+    override var shouldCareForRedCellContact: Bool { true }
+    override var redCellTolerance: Int { 1 }
+    override var virusesTolerance: Int { 1 }
 //    override var nextSKScene: SKScene? {
 //        HelperBScene(fileNamed: "10_HelperB")
 //    }
@@ -64,8 +76,12 @@ public final class HelperBScene: NodeConfigurations {
     }
 }
 
-public final class LevelFourScene: Level {
+public final class LevelFourScene: FinalLevel {
     override var level: Int { 4 }
+    override var virusDelayTime: CGFloat { 0.25 }
+    override var virusesTolerance: Int { 1 }
+    override var touchCooldownPeriod: CGFloat { 1.0 }
+    // override var isLastPhase
 //    override var nextSKScene: SKScene? {
 //        GameCompleted(fileNamed: "12_End")
 //    }
