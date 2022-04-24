@@ -21,8 +21,8 @@ public final class MacrophageScene: NodeConfigurations {
 
 public final class LevelOneScene: Level {
     override var level: Int { 1 }
-    override var virusesTolerance: Int { 1 }
-    override var virusDelayTime: CGFloat { 1.5 }
+    override var bacteriumTolerance: Int { 1 }
+    override var bacteriumDelayTime: CGFloat { 1.5 }
 }
 
 public final class NeutrophilScene: NodeConfigurations {
@@ -33,11 +33,11 @@ public final class NeutrophilScene: NodeConfigurations {
 
 public final class LevelTwoScene: Level {
     override var level: Int { 2 }
-    override var virusDelayTime: CGFloat { 1.5 }
+    override var bacteriumDelayTime: CGFloat { 1.5 }
     override var redCellDelayTime: CGFloat { 3 }
     override var shouldCareForRedCellContact: Bool { true }
     override var redCellTolerance: Int { 1 }
-    override var virusesTolerance: Int { 1 }
+    override var bacteriumTolerance: Int { 1 }
 }
 
 public final class DentriticScene: NodeConfigurations {
@@ -54,11 +54,11 @@ public final class HelperTScene: NodeConfigurations {
 
 public final class LevelThreeScene: Level {
     override var level: Int { 3 }
-    override var virusDelayTime: CGFloat { 1 }
+    override var bacteriumDelayTime: CGFloat { 1 }
     override var redCellDelayTime: CGFloat { 4.5 }
     override var shouldCareForRedCellContact: Bool { true }
     override var redCellTolerance: Int { 1 }
-    override var virusesTolerance: Int { 1 }
+    override var bacteriumTolerance: Int { 1 }
 }
 
 public final class HelperBScene: NodeConfigurations {
@@ -69,8 +69,8 @@ public final class HelperBScene: NodeConfigurations {
 
 public final class LevelFourScene: FinalLevel {
     override var level: Int { 4 }
-    override var virusDelayTime: CGFloat { 0.5 }
-    override var virusesTolerance: Int { 1 }
+    override var bacteriumDelayTime: CGFloat { 0.5 }
+    override var bacteriumTolerance: Int { 1 }
     override var touchCooldownPeriod: CGFloat { 0.75 }
 }
 
