@@ -29,6 +29,10 @@ public class Level: SKScene, SKPhysicsContactDelegate {
     let redCellName = "redCell"
     let redCellSpeed: CGFloat = 200
     
+    // MARK: Red Cell variables
+    let antibodyName = "antibody"
+    let antibodySpeed: CGFloat = 500
+    
     // MARK: Level variables
     var lastTouch: CGPoint? = nil
     var updates: Int = 0
@@ -39,6 +43,8 @@ public class Level: SKScene, SKPhysicsContactDelegate {
     var virusesThatPassed: Int = 0
     var eatenRedCells: Int = 0
     var levelCompleted: Bool = false
+    
+    var touchCooldownBonus: CGFloat = 0
     
     // MARK: Level computed variable
     var level: Int { 0 }
@@ -53,26 +59,29 @@ public class Level: SKScene, SKPhysicsContactDelegate {
     
     public override func didMove(to view: SKView) {
         physicsWorld.contactDelegate = self
-        setNodes()
-    }
-    
-    private func setNodes() {
         // Regular nodes configuration
         whiteCell = childNode(withName: whiteCellName) as? SKSpriteNode
         badFeedback = childNode(withName: "bad_feedback") as? SKSpriteNode
-        // Virus movement configuration
+        setViruses()
+        setRedCells()
+    }
+    
+    func setViruses() {
         var delayTime: CGFloat = 0
         for child in self.children where child.name == virusName {
             if let virus = child as? SKSpriteNode {
                 viruses.append(virus)
                 virus.run(.move(by: .zero, duration: delayTime), completion: {
-                    self.vectorialMovement(virus, to: CGPoint(x: -700, y: virus.position.y), speed: self.virusSpeed)
+                    self.vectorialMovement(virus, to: CGPoint(x: -10000, y: virus.position.y), speed: self.virusSpeed)
+//                    virus.run(.move(to: CGPoint(x: -virus.position.x, y: virus.position.y), duration: 10))
                 })
                 delayTime += virusDelayTime
             }
         }
-        delayTime = .zero
-        // Red Cell movement configuration
+    }
+    
+    func setRedCells() {
+        var delayTime: CGFloat = 0
         for child in self.children where child.name == redCellName {
             if let redCell = child as? SKSpriteNode {
                 redCell.run(.move(by: .zero, duration: delayTime), completion: {
@@ -131,7 +140,7 @@ public class Level: SKScene, SKPhysicsContactDelegate {
         return insideAllowedHeight || insideAllowedWidth
     }
     
-    private func vectorialMovement(_ sprite: SKSpriteNode, to: CGPoint, speed: CGFloat, rotate: Bool = false) {
+    final func vectorialMovement(_ sprite: SKNode, to: CGPoint, speed: CGFloat, rotate: Bool = false, withCompletion: (() -> Void)? = nil) {
         // Movement vector calculation
         let from = sprite.position
         let angle = CGFloat.pi + atan2(from.y - to.y, from.x - to.x)
@@ -143,10 +152,19 @@ public class Level: SKScene, SKPhysicsContactDelegate {
             sprite.run(rotateAction, completion: {
                 sprite.removeAllActions()
                 sprite.physicsBody?.velocity = velocityVector
+                withCompletion?()
             })
         } else {
             sprite.removeAllActions()
             sprite.physicsBody?.velocity = velocityVector
+        }
+    }
+    
+    final func virusAttack() {
+        virusesThatPassed += 1
+        if virusesTolerance == 0 || virusesTolerance - virusesThatPassed < 0 {
+            levelCompleted = true
+            levelCompletion(won: false)
         }
     }
     
@@ -166,7 +184,6 @@ public class Level: SKScene, SKPhysicsContactDelegate {
                 return
             }
             removeNode(a == VIRUS ? bodyA : bodyB, isVirus: true)
-            print("{CONTACT}\t[DEFENSECELL VIRUS]\t\t<code block>\tcompletion")
         } else if shouldCareForRedCellContact, contactIsBetween(a, b, are: [DEFENSECELL, REDCELL]) {
             removeNode(a == REDCELL ? bodyA : bodyB)
             eatenRedCells += 1
@@ -175,32 +192,35 @@ public class Level: SKScene, SKPhysicsContactDelegate {
                 self.levelCompletion(won: false)
             }
             badFeedbackAction()
-            print("{CONTACT}\t[DEFENSECELL REDCELL]\t<code block>\tcompletion")
         } else if contactIsBetween(a, b, are: [VIRUS, WALL]) {
             // Can loose game
             removeNode(a == VIRUS ? bodyA : bodyB, isVirus: true)
-            virusesThatPassed += 1
-            if virusesTolerance == 0 || virusesTolerance - virusesThatPassed < 0 {
-                self.levelCompleted = true
-                self.levelCompletion(won: false)
-            }
+            virusAttack()
             badFeedbackAction()
-            print("{CONTACT}\t[VIRUS WALL]\t\t\t<code block>\tcompletion")
         }
         // Other colisions are irrelevant
     }
     
-    private func badFeedbackAction() {
+    final func badFeedbackAction() {
         guard let feedbackAction = SKAction.init(named: "Feedback_Bad"),
               let feedbackNode = badFeedback else { return }
         feedbackNode.run(feedbackAction)
     }
     
-    func removeNode(_ body: SKPhysicsBody, isVirus: Bool = false) {
+    @objc func removeNode(_ body: SKPhysicsBody, isVirus: Bool = false) {
         guard let node = body.node as? SKSpriteNode else { return }
+
         // Remove node from physics scene and its game reference
+        if node.name == "antibody" { // because is a reference node
+            body.categoryBitMask = 0
+            node.parent?.parent?.removeAllActions()
+            node.parent?.parent?.run(.fadeOut(withDuration: 0.5), completion: {
+                node.removeFromParent()
+            })
+            return
+        }
         node.physicsBody?.categoryBitMask = 0
-        node.run(SKAction.init(named: "Virus_Death")!, completion: {
+        node.run(.fadeOut(withDuration: 1), completion: {
             node.removeFromParent()
         })
         if isVirus, let index = viruses.firstIndex(of: node) {
@@ -210,7 +230,6 @@ public class Level: SKScene, SKPhysicsContactDelegate {
                 self.levelCompleted = true
                 self.levelCompletion(won: true)
             }
-            // Animate virus death and remove it from the scene
         }
     }
     
@@ -219,7 +238,7 @@ public class Level: SKScene, SKPhysicsContactDelegate {
     }
     
     // MARK: Level completion
-    private func levelCompletion(won: Bool) {
+    final func levelCompletion(won: Bool) {
         let fileName = "SpecialScene_Level\(won ? "Passed" : "Failed")"
         guard let nextScene = LevelEndConfigurations(fileNamed: fileName) else { return }
         nextScene.configure(won: won, from: level)
@@ -246,13 +265,15 @@ extension Level {
         isMoving = true
         if canMove {
             canMove = false
-            touchTimer = Timer.scheduledTimer(withTimeInterval: touchCooldownPeriod, repeats: false) { [weak self] timer in
+            touchTimer = Timer.scheduledTimer(withTimeInterval: touchCooldownPeriod - touchCooldownBonus, repeats: false) { [weak self] timer in
                 self?.canMove = true
             }
-            touchAction()
+            // avoid false setting movement variables
+            guard let pos = touches.first?.location(in: self) else { return }
+            touchAction(to: pos)
         }
     }
-    @objc public func touchAction() {
+    @objc public func touchAction(to pos: CGPoint) {
         updateWhiteCell()
     }
 }
@@ -262,66 +283,80 @@ struct VirusTuple {
     
     let virus: SKSpriteNode
     let totalNodesAttacking: AntiBodies
+    
+    func maxNodesAttacking() -> Int {
+        if let name = virus.name {
+            return virus.name == "virus" ? 1 : 3
+        }
+        return 1
+    }
 }
 
 public class FinalLevel: Level {
     // MARK: Defense cell variables
     private let helperBCellName = "helperBCell"
     // MARK: Viruses
-    var bossViruses: Array<SKSpriteNode> = []
     var targetViruses: Array<VirusTuple> = []
+    
+    var bossDelayTime = 2
     
     public override func didMove(to view: SKView) {
         super.didMove(to: view)
-        targetViruses = viruses.map{ VirusTuple(virus: $0, totalNodesAttacking: 0) }
         whiteCell = childNode(withName: helperBCellName) as? SKSpriteNode
-        for node in self.children where node.name == "boss_virus" {
-            if let boss = node as? SKSpriteNode {
-                bossViruses.append(boss)
-                targetViruses.append(VirusTuple(virus: boss, totalNodesAttacking: 0))
-                // codar tempo ocioso
-                // codar tempo de ativação
-            }
-        }
+        targetViruses = viruses.map{ VirusTuple(virus: $0, totalNodesAttacking: 0) }
+        
     }
     
-    @objc override public func touchAction() {
-        guard
-            let antibodyNode = SKReferenceNode(fileNamed: "Reference_Antibody"),
-            let virusNode = getClosestUntargetedVirus(),
-            let whiteCell = whiteCell
-        else {
-            return
+    override func setViruses() {
+        // throw enemies in 4 different waves
+        var waveIndex = 0
+        let wavesCount = [3, 5, 6, 3]
+        var aux = 0
+        // Configure SKActions in waves
+        var delayTime = CGFloat.zero
+        // for each virus and boss virus
+        for node in self.children where (node.name ?? "").contains(virusName) {
+            // update if necessary wave index
+            if aux == 0 {
+                waveIndex += 1
+                aux = wavesCount[waveIndex-1]
+                delayTime += 0.5
+            }
+            if let virusNode = node as? SKSpriteNode {
+                viruses.append(virusNode)
+                targetViruses.append(.init(virus: virusNode, totalNodesAttacking: 0))
+                virusNode.run(.wait(forDuration: delayTime), completion: {
+                    let destiny = CGPoint(x: -800, y: virusNode.position.y)
+                    self.vectorialMovement(virusNode, to: destiny, speed: self.virusSpeed)
+//                    virusNode.run(.moveTo(x: -(2800), duration: 10))
+                })
+                delayTime += virusDelayTime
+            }
+            aux -= 1
         }
-        antibodyNode.position = CGPoint(
-            x: whiteCell.position.x + whiteCell.size.width * 0.6,
-            y: 0)
-        antibodyNode.run(.init(named: "Antibody")!)
-        antibodyNode.run(.move(to: virusNode.position, duration: 0.5))
         
-        scene?.addChild(antibodyNode)
     }
+    
     
     // Most left node (lower X value)
     private func getClosestUntargetedVirus() -> SKSpriteNode? {
         var selectedVirus: SKSpriteNode? = nil
         for virusTuple in targetViruses where (virusTuple.virus.name ?? "").contains(virusName) {
-            if selectedVirus == nil {
+            // if selectedVirus variable was already setted
+            if let selectedPosition = selectedVirus?.position {
+                if let virus = isVirusAvailable(virusTuple), selectedPosition.x > virus.position.x {
+                    selectedVirus = virus
+                }
+            } else {
+                // if selectedVirus variable is null
                 selectedVirus = virusTuple.virus
             }
-            
-            
-//            if selectedVirus == nil {
-//                selectedVirus = virusTuple.a
-//            } else if selectedVirus!.position.x < virusTuple.a.position.x {
-//                selectedVirus = virusTuple.a
-//            }
         }
         return selectedVirus
     }
-    
+        
     // Returns skspritenode if virus can be targeted, otherwise returns nil
-    private func isAvailable(_ tuple: VirusTuple) -> SKSpriteNode? {
+    private func isVirusAvailable(_ tuple: VirusTuple) -> SKSpriteNode? {
         if let name = tuple.virus.name {
             if name == virusName && tuple.totalNodesAttacking == 0 {
                 // regular virus
@@ -345,9 +380,76 @@ public class FinalLevel: Level {
         let b = Int(bodyB.categoryBitMask)
         
         if contactIsBetween(a, b, are: [ANTIBODY, VIRUS]) {
+            touchCooldownBonus += 0.025
             removeNode(bodyA)
             removeNode(bodyB)
-            print("{CONTACT}\t[ANTIBODY VIRUS]\t\t<code block>\tcompletion")
+            tryFinishGame(won: true)
+        } else if contactIsBetween(a, b, are: [HELPERBCELL, VIRUS]) {
+            virusAttack()
+            badFeedbackAction()
+            removeNode(a == VIRUS ? bodyA : bodyB, isVirus: true)
+            tryFinishGame(won: false)
+        } else if contactIsBetween(a, b, are: [VIRUS, WALL]) {
+            virusAttack()
+            tryFinishGame(won: false)
         }
+    }
+    func tryFinishGame(won result: Bool) {
+        if targetViruses.isEmpty {
+            self.levelCompleted = true
+            self.levelCompletion(won: true)
+        }
+    }
+    override func removeNode(_ body: SKPhysicsBody, isVirus: Bool = false) {
+        super.removeNode(body, isVirus: isVirus)
+        guard let node = body.node else { return }
+        if let index = targetViruses.firstIndex(where: { $0.virus == node }) {
+            targetViruses.remove(at: index)
+        }
+    }
+}
+
+// MARK: Touch actions
+extension FinalLevel {
+    @objc override public func touchAction(to pos: CGPoint) {
+        guard
+            let antibodyNode = SKReferenceNode(fileNamed: "Reference_Antibody"),
+            let whiteCell = whiteCell
+        else {
+            return
+        }
+        // Position antibody in front of helper B cell
+        antibodyNode.position = CGPoint(
+            x: whiteCell.position.x + whiteCell.size.width * 0.6,
+            y: 0)
+        scene?.addChild(antibodyNode)
+        // Move cell to point destiny
+        let angle = CGFloat.pi + atan2(antibodyNode.position.y - pos.y, antibodyNode.position.x - pos.x)
+        let velocityVector = CGVector(dx: antibodySpeed * cos(angle), dy: antibodySpeed * sin(angle))
+        antibodyNode.children[0].children[0].physicsBody?.velocity = velocityVector
+    }
+    
+    func foo(to pos: CGPoint) {
+        guard
+            let antibodyNode = SKReferenceNode(fileNamed: "Reference_Antibody"),
+            let virusNode = getClosestUntargetedVirus(),
+            let whiteCell = whiteCell
+        else {
+            return
+        }
+        // Position antibody in front of helper B cell
+        antibodyNode.position = CGPoint(
+            x: whiteCell.position.x + whiteCell.size.width * 0.6,
+            y: 0)
+        scene?.addChild(antibodyNode)
+        // Move cell to point destiny
+        antibodyNode.run(.move(to: virusNode.position, duration: 0.5), completion: {
+            antibodyNode.physicsBody?.categoryBitMask = 0
+            antibodyNode.physicsBody?.isResting = true
+            antibodyNode.removeAllActions()
+            antibodyNode.run(.fadeOut(withDuration: 0.5), completion:  {
+                antibodyNode.removeFromParent()
+            })
+        })
     }
 }
