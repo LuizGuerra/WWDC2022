@@ -20,7 +20,7 @@ public class Level: SKScene, SKPhysicsContactDelegate {
     let whiteCellName = "whiteCell"
     var whiteCellSpeed: CGFloat = 160
     
-    // MARK: Viruses variables
+    // MARK: Bacterium variables
     let bacteriumName = "bacteria"
     let bossBacteriumName = "boss_bacteria"
     let bacteriumSpeed: CGFloat = 240
@@ -73,7 +73,6 @@ public class Level: SKScene, SKPhysicsContactDelegate {
                 bacteriaList.append(bacterium)
                 bacterium.run(.move(by: .zero, duration: delayTime), completion: {
                     self.vectorialMovement(bacterium, to: CGPoint(x: -10000, y: bacterium.position.y), speed: self.bacteriumSpeed)
-//                    virus.run(.move(to: CGPoint(x: -virus.position.x, y: virus.position.y), duration: 10))
                 })
                 delayTime += bacteriumDelayTime
             }
@@ -85,38 +84,11 @@ public class Level: SKScene, SKPhysicsContactDelegate {
         for child in self.children where child.name == redCellName {
             if let redCell = child as? SKSpriteNode {
                 redCell.run(.move(by: .zero, duration: delayTime), completion: {
-                    self.vectorialMovement(redCell, to: CGPoint(x: -700, y: redCell.position.y), speed: self.redCellSpeed)
+                    self.vectorialMovement(redCell, to: CGPoint(x: -10000, y: redCell.position.y), speed: self.redCellSpeed)
                 })
                 delayTime += redCellDelayTime
             }
         }
-    }
-    
-    // MARK: Helper functions to find the correct angular velocity formula for each bacteria given their origin point
-    private func virusVector(from original: CGPoint) -> Array<CGFloat> {
-        let wasAbove = original.y > 0
-//        let wasLeft = original.x < 0
-        var ys: Array<CGFloat> = []
-        // Using the logic of f(x) = ax^2 + bx + c
-//        var a = findQuadraticA(from: original.x)
-//        var c = findQuadraticC(from: original.y)
-        // Keeping count of where in the graph the calculation is
-//        var lastX = 600
-        // Running through the graph divided in 4 parts of 300
-        for i in 1 ... 4 {
-            if i <= 2 {
-                ys.append(wasAbove ? -20 : +20)
-            } else {
-                ys.append(wasAbove ? +20 : -20)
-            }
-        }
-        return ys
-    }
-    private func findQuadraticA(from x: CGFloat) -> CGFloat {
-        return (-(x*x)/9)+10_000
-    }
-    private func findQuadraticC(from y: CGFloat) -> CGFloat {
-        return y/2
     }
     
     // MARK: Interactive node movements
@@ -140,7 +112,7 @@ public class Level: SKScene, SKPhysicsContactDelegate {
         return insideAllowedHeight || insideAllowedWidth
     }
     
-    final func vectorialMovement(_ sprite: SKNode, to: CGPoint, speed: CGFloat, rotate: Bool = false, withCompletion: (() -> Void)? = nil) {
+    final func vectorialMovement(_ sprite: SKNode, to: CGPoint, speed: CGFloat, rotate: Bool = false) {
         // Movement vector calculation
         let from = sprite.position
         let angle = CGFloat.pi + atan2(from.y - to.y, from.x - to.x)
@@ -152,7 +124,6 @@ public class Level: SKScene, SKPhysicsContactDelegate {
             sprite.run(rotateAction, completion: {
                 sprite.removeAllActions()
                 sprite.physicsBody?.velocity = velocityVector
-                withCompletion?()
             })
         } else {
             sprite.removeAllActions()
@@ -160,7 +131,7 @@ public class Level: SKScene, SKPhysicsContactDelegate {
         }
     }
     
-    final func virusAttack() {
+    final func bacteriumAttack() {
         bacteriaThatPassed += 1
         if bacteriumTolerance == 0 || bacteriumTolerance - bacteriaThatPassed < 0 {
             levelCompleted = true
@@ -183,7 +154,7 @@ public class Level: SKScene, SKPhysicsContactDelegate {
             if bacteriaList.isEmpty { // In case is touching a dying bacteria
                 return
             }
-            removeNode(a == BACTERIUM ? bodyA : bodyB, isVirus: true)
+            removeNode(a == BACTERIUM ? bodyA : bodyB, isBacterium: true)
         } else if shouldCareForRedCellContact, contactIsBetween(a, b, are: [DEFENSECELL, REDCELL]) {
             removeNode(a == REDCELL ? bodyA : bodyB)
             eatenRedCells += 1
@@ -194,8 +165,8 @@ public class Level: SKScene, SKPhysicsContactDelegate {
             badFeedbackAction()
         } else if contactIsBetween(a, b, are: [BACTERIUM, WALL]) {
             // Can loose game
-            removeNode(a == BACTERIUM ? bodyA : bodyB, isVirus: true)
-            virusAttack()
+            removeNode(a == BACTERIUM ? bodyA : bodyB, isBacterium: true)
+            bacteriumAttack()
             badFeedbackAction()
         }
         // Other colisions are irrelevant
@@ -207,7 +178,7 @@ public class Level: SKScene, SKPhysicsContactDelegate {
         feedbackNode.run(feedbackAction)
     }
     
-    @objc func removeNode(_ body: SKPhysicsBody, isVirus: Bool = false) {
+    @objc func removeNode(_ body: SKPhysicsBody, isBacterium: Bool = false) {
         guard let node = body.node as? SKSpriteNode else { return }
 
         // Remove node from physics scene and its game reference
@@ -223,9 +194,9 @@ public class Level: SKScene, SKPhysicsContactDelegate {
         node.run(.fadeOut(withDuration: 1), completion: {
             node.removeFromParent()
         })
-        if isVirus, let index = bacteriaList.firstIndex(of: node) {
+        if isBacterium, let index = bacteriaList.firstIndex(of: node) {
             bacteriaList.remove(at: index)
-            // If is the last virus, then end phase
+            // If is the last bacterium, then end phase
             if bacteriaList.isEmpty {
                 self.levelCompleted = true
                 self.levelCompletion(won: true)
@@ -247,6 +218,148 @@ public class Level: SKScene, SKPhysicsContactDelegate {
         view?.presentScene(nextScene, transition: moveRight)
     }
     
+}
+
+struct BacteriumTuple {
+    typealias AntiBodies = Int
+    
+    let bacterium: SKSpriteNode
+    var totalNodesAttacking: AntiBodies
+    
+    func maxNodesAttacking() -> Int {
+        if let name = bacterium.name {
+            return name == "bacteria" ? 1 : 3
+        }
+        return 1
+    }
+}
+
+public class FinalLevel: Level {
+    // MARK: Defense cell variables
+    private let helperBCellName = "helperBCell"
+    // MARK: Bacterium
+    var targetBacteria: [BacteriumTuple] = []
+    var bossDelayTime = 2
+    
+    public override func didMove(to view: SKView) {
+        super.didMove(to: view)
+        whiteCell = childNode(withName: helperBCellName) as? SKSpriteNode
+        targetBacteria = bacteriaList.map{ BacteriumTuple(bacterium: $0, totalNodesAttacking: 0) }
+    }
+    
+    override func setBacterium() {
+        // throw enemies in 4 different waves
+        var waveIndex = 0
+        let wavesCount = [3, 5, 6, 3]
+        var aux = 0
+        // Configure SKActions in waves
+        var delayTime = CGFloat.zero
+        // for each bacterium and boss bacterium
+        for node in self.children where (node.name ?? "").contains(bacteriumName) {
+            // update if necessary wave index
+            if aux == 0 {
+                waveIndex += 1
+                aux = wavesCount[waveIndex-1]
+                delayTime += 0.5
+            }
+            if let bacteriumNode = node as? SKSpriteNode {
+                bacteriaList.append(bacteriumNode)
+                targetBacteria.append(.init(bacterium: bacteriumNode, totalNodesAttacking: 0))
+                bacteriumNode.run(.wait(forDuration: delayTime), completion: {
+                    let destiny = CGPoint(x: -800, y: bacteriumNode.position.y)
+                    self.vectorialMovement(bacteriumNode, to: destiny, speed: self.bacteriumSpeed)
+                })
+                delayTime += bacteriumDelayTime
+            }
+            aux -= 1
+        }
+    }
+    
+    // Most left node (lower X value)
+    private func getClosestUntargetedBacterium() -> SKSpriteNode? {
+        var selectedBacterium: SKSpriteNode? = nil
+        for bacteriumTuple in targetBacteria where (bacteriumTuple.bacterium.name ?? "").contains(bacteriumName) {
+            // if selectedBacterium variable was already setted
+            if let selectedPosition = selectedBacterium?.position {
+                if let bacterium = isBacteriumAvailable(bacteriumTuple), selectedPosition.x > bacterium.position.x {
+                    selectedBacterium = bacterium
+                }
+            } else {
+                // if selectedBacterium variable is null
+                selectedBacterium = bacteriumTuple.bacterium
+            }
+        }
+        return selectedBacterium
+    }
+        
+    // Returns skspritenode if bacterium can be targeted, otherwise returns nil
+    private func isBacteriumAvailable(_ tuple: BacteriumTuple) -> SKSpriteNode? {
+        if let name = tuple.bacterium.name {
+            if name == bacteriumName && tuple.totalNodesAttacking == 0 {
+                // regular bacterium
+                return tuple.bacterium
+            } else if name == bossBacteriumName && tuple.totalNodesAttacking <= 1 {
+                // boss bacterium
+                return tuple.bacterium
+            }
+        }
+        return nil
+    }
+    // MARK: Physics Contact
+    public override func didBegin(_ contact: SKPhysicsContact) {
+        super.didBegin(contact)
+        if levelCompleted {
+            return
+        }
+        let bodyA = contact.bodyA
+        let bodyB = contact.bodyB
+        let a = Int(bodyA.categoryBitMask)
+        let b = Int(bodyB.categoryBitMask)
+        
+        if contactIsBetween(a, b, are: [ANTIBODY, BACTERIUM]) {
+            let bacteriumBody = a == BACTERIUM ? bodyA : bodyB
+            let antibodyBody = a == ANTIBODY ? bodyA : bodyB
+            if let bacteriumNode = bacteriumBody.node,
+               let index = targetBacteria.firstIndex(where: { $0.bacterium == bacteriumNode }) {
+                targetBacteria[index].totalNodesAttacking += 1
+                if bacteriumNode.name == bossBacteriumName && targetBacteria[index].totalNodesAttacking > 2 {
+                    // if boss finally can die
+                    removeNode(bacteriumBody)
+                } else if bacteriumNode.name == bossBacteriumName {
+                    // if didnt die, restitute its velocity
+                    let destiny = CGPoint(x: -800, y: bacteriumNode.position.y)
+                    self.vectorialMovement(bacteriumNode, to: destiny, speed: self.bacteriumSpeed)
+                } else if bacteriumNode.name == bacteriumName {
+                    // if is regular bacterium, kill it
+                    removeNode(bacteriumBody)
+                }
+            }
+            touchCooldownBonus += 0.025
+            removeNode(antibodyBody)
+            tryFinishGame(won: true)
+        } else if contactIsBetween(a, b, are: [HELPERBCELL, BACTERIUM]) {
+            bacteriumAttack()
+            badFeedbackAction()
+            removeNode(a == BACTERIUM ? bodyA : bodyB, isBacterium: true)
+            tryFinishGame(won: false)
+        } else if contactIsBetween(a, b, are: [BACTERIUM, WALL]) {
+            bacteriumAttack()
+            tryFinishGame(won: false)
+        }
+    }
+    func tryFinishGame(won result: Bool) {
+        if targetBacteria.isEmpty {
+            self.levelCompleted = true
+            self.levelCompletion(won: true)
+        }
+    }
+    override func removeNode(_ body: SKPhysicsBody, isBacterium: Bool = false) {
+        super.removeNode(body, isBacterium: isBacterium)
+        guard let node = body.node else { return }
+        if let index = targetBacteria.firstIndex(where: { $0.bacterium == node }) {
+            targetBacteria.remove(at: index)
+        }
+    }
 }
 
 // MARK: Touch handler
@@ -278,154 +391,7 @@ extension Level {
     }
 }
 
-struct VirusTuple {
-    typealias AntiBodies = Int
-    
-    let virus: SKSpriteNode
-    var totalNodesAttacking: AntiBodies
-    
-    func maxNodesAttacking() -> Int {
-        if let name = virus.name {
-            return name == "virus" ? 1 : 3
-        }
-        return 1
-    }
-}
-
-public class FinalLevel: Level {
-    // MARK: Defense cell variables
-    private let helperBCellName = "helperBCell"
-    // MARK: Viruses
-    var targetViruses: Array<VirusTuple> = []
-    
-    var bossDelayTime = 2
-    
-    public override func didMove(to view: SKView) {
-        super.didMove(to: view)
-        whiteCell = childNode(withName: helperBCellName) as? SKSpriteNode
-        targetViruses = bacteriaList.map{ VirusTuple(virus: $0, totalNodesAttacking: 0) }
-        
-    }
-    
-    override func setViruses() {
-        // throw enemies in 4 different waves
-        var waveIndex = 0
-        let wavesCount = [3, 5, 6, 3]
-        var aux = 0
-        // Configure SKActions in waves
-        var delayTime = CGFloat.zero
-        // for each virus and boss virus
-        for node in self.children where (node.name ?? "").contains(bacteriumName) {
-            // update if necessary wave index
-            if aux == 0 {
-                waveIndex += 1
-                aux = wavesCount[waveIndex-1]
-                delayTime += 0.5
-            }
-            if let virusNode = node as? SKSpriteNode {
-                bacteriaList.append(virusNode)
-                targetViruses.append(.init(virus: virusNode, totalNodesAttacking: 0))
-                virusNode.run(.wait(forDuration: delayTime), completion: {
-                    let destiny = CGPoint(x: -800, y: virusNode.position.y)
-                    self.vectorialMovement(virusNode, to: destiny, speed: self.bacteriumSpeed)
-                })
-                delayTime += bacteriumDelayTime
-            }
-            aux -= 1
-        }
-    }
-    
-    // Most left node (lower X value)
-    private func getClosestUntargetedVirus() -> SKSpriteNode? {
-        var selectedVirus: SKSpriteNode? = nil
-        for virusTuple in targetViruses where (virusTuple.virus.name ?? "").contains(bacteriumName) {
-            // if selectedVirus variable was already setted
-            if let selectedPosition = selectedVirus?.position {
-                if let virus = isVirusAvailable(virusTuple), selectedPosition.x > virus.position.x {
-                    selectedVirus = virus
-                }
-            } else {
-                // if selectedVirus variable is null
-                selectedVirus = virusTuple.virus
-            }
-        }
-        return selectedVirus
-    }
-        
-    // Returns skspritenode if virus can be targeted, otherwise returns nil
-    private func isVirusAvailable(_ tuple: VirusTuple) -> SKSpriteNode? {
-        if let name = tuple.virus.name {
-            if name == bacteriumName && tuple.totalNodesAttacking == 0 {
-                // regular virus
-                return tuple.virus
-            } else if name == bossBacteriumName && tuple.totalNodesAttacking <= 1 {
-                // boss virus
-                return tuple.virus
-            }
-        }
-        return nil
-    }
-    // MARK: Physics Contact
-    public override func didBegin(_ contact: SKPhysicsContact) {
-        super.didBegin(contact)
-        if levelCompleted {
-            return
-        }
-        let bodyA = contact.bodyA
-        let bodyB = contact.bodyB
-        let a = Int(bodyA.categoryBitMask)
-        let b = Int(bodyB.categoryBitMask)
-        
-        if contactIsBetween(a, b, are: [ANTIBODY, BACTERIUM]) {
-            let virusBody = a == BACTERIUM ? bodyA : bodyB
-            let antibodyBody = a == ANTIBODY ? bodyA : bodyB
-            if let virusNode = virusBody.node,
-               let index = targetViruses.firstIndex(where: { $0.virus == virusNode }) {
-                targetViruses[index].totalNodesAttacking += 1
-                if virusNode.name == bossBacteriumName {
-                    print("Count: ", targetViruses.count, ", index: ", index)
-                }
-                if virusNode.name == bossBacteriumName && targetViruses[index].totalNodesAttacking > 2 {
-                    // if boss finally can die
-                    removeNode(virusBody)
-                } else if virusNode.name == bossBacteriumName {
-                    // if didnt die, restitute its velocity
-                    let destiny = CGPoint(x: -800, y: virusNode.position.y)
-                    self.vectorialMovement(virusNode, to: destiny, speed: self.bacteriumSpeed)
-                } else if virusNode.name == bacteriumName {
-                    // if is regular virus, kill it
-                    removeNode(virusBody)
-                }
-            }
-            touchCooldownBonus += 0.025
-            removeNode(antibodyBody)
-            tryFinishGame(won: true)
-        } else if contactIsBetween(a, b, are: [HELPERBCELL, BACTERIUM]) {
-            virusAttack()
-            badFeedbackAction()
-            removeNode(a == BACTERIUM ? bodyA : bodyB, isVirus: true)
-            tryFinishGame(won: false)
-        } else if contactIsBetween(a, b, are: [BACTERIUM, WALL]) {
-            virusAttack()
-            tryFinishGame(won: false)
-        }
-    }
-    func tryFinishGame(won result: Bool) {
-        if targetViruses.isEmpty {
-            self.levelCompleted = true
-            self.levelCompletion(won: true)
-        }
-    }
-    override func removeNode(_ body: SKPhysicsBody, isVirus: Bool = false) {
-        super.removeNode(body, isVirus: isVirus)
-        guard let node = body.node else { return }
-        if let index = targetViruses.firstIndex(where: { $0.virus == node }) {
-            targetViruses.remove(at: index)
-        }
-    }
-}
-
-// MARK: Touch actions
+// MARK: Touch handler
 extension FinalLevel {
     @objc override public func touchAction(to pos: CGPoint) {
         guard

@@ -14,9 +14,9 @@
             filePath = "WWDC2022.playground/Sources/LevelConfigurations.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "210"
-            endingLineNumber = "210"
-            landmarkName = "removeNode(_:isVirus:)"
+            startingLineNumber = "181"
+            endingLineNumber = "181"
+            landmarkName = "removeNode(_:isBacterium:)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
