@@ -76,14 +76,8 @@ public final class LevelFourScene: FinalLevel {
 
 public final class GameCompleted: NodeConfigurations {
     override var nextSKScene: SKScene? {
-        HomeScene(fileNamed: "01_Home")
-//        DeveloperInformation()
+        DeveloperInformation(fileNamed: "AboutMe")
     }
 }
 
-// TODO: this
-public final class DeveloperInformation: NodeConfigurations {
-    override var nextSKScene: SKScene? {
-        nil
-    }
-}
+public final class DeveloperInformation: NodeConfigurations {}
