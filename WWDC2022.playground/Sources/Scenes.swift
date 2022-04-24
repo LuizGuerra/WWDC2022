@@ -54,8 +54,8 @@ public final class HelperTScene: NodeConfigurations {
 
 public final class LevelThreeScene: Level {
     override var level: Int { 3 }
-    override var bacteriumDelayTime: CGFloat { 1 }
-    override var redCellDelayTime: CGFloat { 4.5 }
+    override var bacteriumDelayTime: CGFloat { 1.0 }
+    override var redCellDelayTime: CGFloat { 5.0 }
     override var shouldCareForRedCellContact: Bool { true }
     override var redCellTolerance: Int { 1 }
     override var bacteriumTolerance: Int { 1 }
