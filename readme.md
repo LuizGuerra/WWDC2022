@@ -1,6 +1,6 @@
 # WWDC2022
 
-![](https://img.shields.io/badge/status-accepted-green)
+![](https://img.shields.io/badge/status-accepted-%2300CC66)
 
 This is my accepted WWDC 2022 project. This is a game focused on teaching how our immune system react in an attack and some of the different immune cells in our defense.
 
